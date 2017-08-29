@@ -1,0 +1,1 @@
+# PoC_device_status_recognition
