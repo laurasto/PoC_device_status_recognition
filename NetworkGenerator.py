@@ -2,39 +2,74 @@ class NetworkGenerator:
 
     def __init__(self):
         self.author = 'ACN'
-        
-        
-        
+
+
+
+    def get_vggpre_net(self, pic_size)    : 
+                
+        import keras
+        from keras import applications
+        from keras.applications.vgg16 import VGG16
+        from keras.models import Sequential, Model 
+        from keras.layers import Dropout, Flatten, Dense, GlobalAveragePooling2D
+        from keras import backend as k 
+
+        model = applications.VGG16(weights = "imagenet", include_top=False, input_shape = (224, 224, 3))
+
+        # Freeze the layers which you don't want to train. Here I am freezing first five layers.
+        for layer in model.layers:
+            layer.trainable = False
+
+            #Adding custom Layers 
+        x = model.output
+        x = Flatten()(x)
+        x = Dense(64, activation="relu")(x)
+        x = Dropout(0.5)(x)
+        x = Dense(64, activation="relu")(x)
+        predictions = Dense(3, activation="softmax")(x)
+
+            # creating the final model 
+        my_model = Model(input = model.input, output = predictions)
+
+        return my_model, 'VGG16-pre-trained'
         
     def get_vgg_net(self, pic_size)    :
         
         """ a VGG16-like model from the example networks of keras
         https://keras.io/applications/#vgg16
         """
+        import keras
         from keras.models import Sequential
         from keras.layers import Dense, Dropout, Flatten
         from keras.layers import Conv2D, MaxPooling2D
         
-        feat_width=11 # width of the first conv. filters
+        
+
+        feat_width=3 # width of the first conv. filters
         number_of_feat=32 # number of first conv. filters
-        im_width=320
-        im_length=180
+        im_width=224
+        im_length=224
         model = Sequential()
         # input: 256x256 images with 3 channels 
         # this applies number_of_feat convolution filters of size feat_widthxfeat_width each.
         model.add(Conv2D(number_of_feat, (feat_width,feat_width), activation='relu', input_shape=(im_length, im_width, 3)))
         model.add(MaxPooling2D(pool_size=(2, 2)))
-        model.add(Conv2D(32, (5,5), activation='relu'))
+        model.add(Conv2D(32, (3,3), activation='relu'))
+        model.add(keras.layers.normalization.BatchNormalization())
         model.add(MaxPooling2D(pool_size=(2, 2)))
-        #model.add(Dropout(0.25))
+        model.add(Conv2D(32, (3,3), activation='relu'))
+        model.add(keras.layers.normalization.BatchNormalization())
+        model.add(Dropout(0.5))#
         
         model.add(Conv2D(64, (3, 3), activation='relu'))
+        model.add(keras.layers.normalization.BatchNormalization())
         model.add(MaxPooling2D(pool_size=(2, 2)))
         model.add(Conv2D(64, (3, 3), activation='relu'))
+        model.add(keras.layers.normalization.BatchNormalization())
         model.add(MaxPooling2D(pool_size=(2, 2)))
-#        model.add(Dropout(0.5)
+        model.add(Dropout(0.5))
         model.add(Flatten())
-        model.add(Dense(128, activation='relu'))
+        model.add(Dense(32, activation='relu'))
         model.add(Dropout(0.5))
         model.add(Dense(3,activation = 'softmax'))
         return model, 'VGG16'
@@ -91,47 +126,28 @@ class NetworkGenerator:
         Links:
             [CIFAR-10 Dataset](https://www.cs.toronto.edu/~kriz/cifar.html)
         """
+        
+        from keras.models import Sequential
+        from keras.layers import Dense, Dropout, Flatten
+        from keras.layers import Conv2D, MaxPooling2D        
+        
+        model = Sequential()
+        model.add(Conv2D(32, (3,3), activation = 'relu', input_shape= (224, 224, 3)))
+        model.add(MaxPooling2D(pool_size=(2, 2)))     
+        model.add(Conv2D(32, (3, 3), activation = 'relu'))
+        model.add(Dropout(0.25))
+        model.add(MaxPooling2D(pool_size=(2, 2)))
+        
+        model.add(Conv2D(64, (3, 3), activation = 'relu'))
+        model.add(MaxPooling2D(pool_size=(2, 2)))
 
-        import tflearn
-        from tflearn import optimizers
-        from tflearn import metrics
-        from tflearn.data_utils import shuffle, to_categorical
-        from tflearn.layers.core import input_data, dropout, fully_connected
-        from tflearn.layers.conv import conv_2d, max_pool_2d
-        from tflearn.layers.estimator import regression
-        from tflearn.data_preprocessing import ImagePreprocessing
-        from tflearn.data_augmentation import ImageAugmentation
-
-#        # Real-time data preprocessing
-        img_prep = ImagePreprocessing()
-        img_prep.add_featurewise_zero_center()
-        img_prep.add_featurewise_stdnorm()
-#
-#        # Real-time data augmentation
-#        img_aug = ImageAugmentation()
-#        img_aug.add_random_flip_leftright()
-#        img_aug.add_random_rotation(max_angle=45.)
-
-        # Convolutional network building
-        input_layer = input_data(shape=[None, pic_size[0], pic_size[1], 3],
-                             data_preprocessing=img_prep)
-        layer1 = conv_2d(input_layer, 32, 5, activation='relu')
-        layer2 = max_pool_2d(layer1, 2)
-        layer3 = conv_2d(layer2, 16, 3, activation='relu')
-        layer4 = conv_2d(layer3, 8, 3, activation='relu')
-        layer5 = max_pool_2d(layer4, 2)
-        layer6 = fully_connected(layer5, 256, activation='relu')
-        layer7 = dropout(layer6, 0.5)
-        net = fully_connected(layer7, 3, activation='softmax')
-        # accuracy as metric
-        acc=tflearn.metrics.Accuracy (name=None) 
-        # stochastic gradient decent as optimizer
-        sgd = tflearn.optimizers.SGD(learning_rate=0.01, lr_decay=0.96, decay_step=100)
-        network = regression(net, optimizer=sgd,
-                             loss='categorical_crossentropy',
-                             metric= acc)
-	
-        return network, 'ConvNet'
+        model.add(Flatten())
+        model.add(Dense(32, activation = 'relu'))
+        
+        model.add(Dropout(0.5))
+        model.add(Dense(3, activation = 'softmax'))
+       
+        return model, 'ConvNet'
 
     def get_highway(self, pic_size):
 

@@ -24,63 +24,84 @@ import os
 
 from datetime import datetime
 
-from skimage import exposure
-import matplotlib.pyplot as plt
+#from skimage import exposure
+#import matplotlib.pyplot as plt
 from keras.models import load_model
 from keras.optimizers import SGD, Adam, rmsprop
 from keras import metrics
 from DataProcessing import PreProcessor
 from NetworkGenerator import NetworkGenerator
 from sklearn.model_selection import train_test_split
+from keras.applications.vgg16 import VGG16
+from keras.models import Sequential, Model 
+#import skimage as ski
+#from skimage import data, feature
+#from skimage import exposure
+#from skimage.exposure import rescale_intensity
 
+#import matplotlib.pyplot as plt
+#import matplotlib.colors as colors
+#import skimage
+#from skimage import color
+### this is used only for the green channel trick
+#cmap = plt.cm.viridis
 
 # Set to 'TRAIN' or 'TEST'
 mode = 'TRAIN'  
 #mode = 'TEST'
 #mode = ´CLASSIFY
 
-im_length=320
-im_width=180
-maximum=300# MAXIMUM NUMBER OF IMAGES PER CLASS
+im_length=224
+im_width=224
+maximum=3000# MAXIMUM NUMBER OF IMAGES PER CLASS
 
-train_data_folder='./processed_data'
-test_data_folder='./processed_data_test'
+train_data_folder='./new_augmented'
+test_data_folder='./test_set'
 model_folder='./learned_models'
-modem_foto_folder='./upload_folder'
+#modem_foto_folder='./upload_folder'
 
 dataset = PreProcessor() 
 
+
+
 # VIDEO TO IMAGE
-#  extracts raw images from video, e.g. by capturing every 24th frame
-#  does not have to be run over and over again
-#dataset.video_to_images(image_path='./raw_pictures_test', video_path='./trimmed_videos',\
-#                        size_pics=(im_length,im_width), frame_spacing=18) 
+#dataset.video_to_images(image_path='./new_pictures', video_path='./all_videos',\
+#                        size_pics=(512, 512), frame_spacing=12 ) 
 # IMAGES TO AUGMENTED IMAGE DATA SETS
-#  augments the (manually cleaned) raw images to form a richer training set
-#  does not have to be run over and over again
-#dataset.augment_data(image_path='./raw_pictures_test', augment_path='./processed_data_test', \
-#                     batch_size=5)
+#dataset.augment_data(image_path='./new_pictures', augment_path='./new_augmented', \
+#                     batch_size=10)
 
-# BALANCE THE IMAGE DATA SETS
+## BALANCE THE IMAGE DATA SETS
 #  balances the training sets to have equal number of samples
-#  does not have to be run over and over again
-dataset.balance_image_classes(maximum, augment_path='./processed_data')
+#dataset.balance_image_classes(maximum, image_path='./new_augmented')
 
-#  gives the size of the images to be classified 
+# convert to images of given size
+#dataset.convert_to_png( 'sample', im_length, im_width, image_path = './new_augmented')
+
+# does some image-processing to remove non-informative features
+#dataset.process_array(image_path='./raw_pictures', augment_path='./processed_data')
+
+# insert backgrounds
+#dataset.generate_background( bg_path='/home/laura/Documents/PoC_Modems-master/additional_folders/back_grounds'\
+#                            , image_path='/home/laura/Documents/PoC_Modems-master/raw_pictures_segmented_test'\
+#                            , save_path='/home/laura/Documents/PoC_Modems-master/new_augmented')
+
+#dataset.separate_test_set(train_path = './new_augmented', test_path = './test_set')
+# the size of the images to be classified 
 size_pics = dataset.size_pics 
    
 net_gen = NetworkGenerator()
 
 #  choose one of the different network architectures
+#model, net_name = net_gen.get_vggpre_net(pic_size=size_pics)
 model, net_name = net_gen.get_vgg_net(pic_size=size_pics)
-#network, net_name = net_gen.get_convnet(pic_size=size_pics)
 #network, net_name = net_gen.get_alex_net(pic_size=size_pics)
 #network, net_name = net_gen.get_highway(pic_size=size_pics)
 
 #  choose the parameters for the network model
 sgd = SGD(lr=0.1, decay=1e-6, momentum=0.01, nesterov=True)
 adam = Adam(lr=0.001, beta_1=0.9, beta_2=0.999, epsilon=1e-08, decay=0.0)
-opt = rmsprop(lr=0.0001, decay=1e-6)
+opt = rmsprop(lr=0.001, decay=1e-6)
 model.compile(loss='categorical_crossentropy', optimizer=opt,\
               metrics=[metrics.categorical_accuracy])
 
@@ -88,28 +109,19 @@ model.compile(loss='categorical_crossentropy', optimizer=opt,\
 if mode == 'TRAIN':
     
 #  loads the training data as well as their labels
-    X, y = dataset.load_data(train_data_folder)
-    X_train, X_test, y_train, y_test = train_test_split(X, y,test_size=0.25)
-    X_train=X_train.reshape(X_train.shape[0],im_width,im_length,3)
-    X_test=X_test.reshape(X_test.shape[0],im_width,im_length,3)
+    X_train, y_train = dataset.load_data(train_data_folder)
+#    X_train, X_test, y_train, y_test = train_test_split(X, y,test_size=0.25)
+    #X_train=X_train.reshape(X_train.shape[0],im_width,im_length,3)
+#    X_test=X_test.reshape(X_test.shape[0],im_width,im_length,3)
 #    inputshape=(256,256,3)
-
-    X_train/=255. # comment these out when preprocessing
-    X_test/=255.
-
-# optional image processing    
-# process the images before training
-#    for index, array in enumerate(X_train):
-#        X_train[index]=dataset.process_array(array)
-#        
-#    for index, array in enumerate(X_test):
-#        X_test[index]=dataset.process_array(array)  
-##        
-        
+    
+#    cmap = plt.cm.viridis
+    X_train/=255. 
+#    X_test/=255.
 
 #   fit a model    
-    history=model.fit(X_train, y_train, batch_size=16, epochs=10)
-    scores=model.evaluate(X_test, y_test, batch_size=16,verbose=2)
+    history=model.fit(X_train, y_train, batch_size=32, epochs=20)
+    #scores=model.evaluate(X_test, y_test, batch_size=16,verbose=2)
 
 
     #  check if destination folder present
@@ -118,26 +130,29 @@ if mode == 'TRAIN':
     model_number= len(os.listdir(model_folder))+1
     model.save(model_folder+'/model_'+str(model_number)+'.h5')
 
-    file = open('/home/laura/Documents/PoC_Modems-master/project_reports/deep_learning_results.txt','a')
+    file = open('./learned_models/details_on_learning.txt','a')
     file.write('time:'+str(datetime.now())+'categorical accuracies'+\
                str(history.history['categorical_accuracy'])+\
-               ', scores:' + str(scores) + ',  **comments here** model number'+ str(model_number) )
+               ',  all data: train 80 % test with 20% NN: vgg-like convnet, model number: '+ str(model_number) )
     file.close()
     
 #*****************************testing
 elif mode == 'TEST':
+
+
     
 # load the model fitted with training data
-    
+    model_number= len(os.listdir(model_folder))
     model=load_model(model_folder+'/model_'+str(model_number)+'.h5')
-
-
+    
+  
 # loads the testing data as well as their labels
     X, Y = dataset.load_data(test_data_folder)
-    X=X.reshape(X.shape[0],im_width,im_length,3)
+    #X=X.reshape(X.shape[0],im_width,im_length,3)
     X/=255.
 #    for index, array in enumerate(X):
 #        X[index]=dataset.process_array(array)    
+         
 
     folders = [folder for folder in os.listdir(test_data_folder)]
     prediction_accuracies=[]
@@ -157,6 +172,8 @@ elif mode == 'TEST':
         accuracy=(1-sum(abs(Y[folder_start_index:folder_start_index+number_of_predictions,col_number]
                             -Y_class[:,col_number]))/number_of_predictions)*100
         
+        print('folder_start: ' + str(folder_start_index) + ', column: ' + str(col_number))                    
+                            
         print("real statuses = " + str(np.sum(Y[folder_start_index:folder_start_index+number_of_predictions],axis=0)))
         print("predicted statuses = " + str(np.sum(Y_class,axis=0)))
         print('accurately predicted class %s in %.2f percent of the cases' %(folder,accuracy))
@@ -167,10 +184,10 @@ elif mode == 'TEST':
 
         
 #********************************training
-if mode == 'CLASSIFY':        
+elif mode == 'CLASSIFY':        
 
     
-    model=load_model(model_folder+'/model.h5')    
+    model=load_model(model_folder+'/model_'+str(model_number)+'.h5')    
     image_to_be_classified=os.listdir(modem_foto_folder)[0]
     array = dataset.load_image(modem_foto_folder + '/' + image_to_be_classified)
     predicted_status = model.predict([array])
